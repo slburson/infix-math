@@ -12,7 +12,8 @@
   (:export
    :$ :over :^
    :declare-unary-operator
-   :declare-binary-operator))
+   :declare-binary-operator
+   :infix-parse-error))
 
 (in-package #:infix-math)
 
@@ -32,6 +33,17 @@
           (cons (list operator y x) rest)))))
 
 (define-modify-macro nodef (operator) make-node)
+
+(define-condition infix-parse-error (parse-error)
+    ((expression :initarg :expression :reader infix-parse-error-expression))
+  (:report (lambda (err stream)
+	     ;; For clarity, we use `*print-length*' to force sublists to print as `(...)'.
+	     (let ((*print-length* 0))
+	       (format stream
+		      "Infix parsing error on: ~{~A~^ ~}~@
+		       This can happen when you call a function that has not been declared~@
+		       as a unary operator, without parenthesizing the call."
+		      (infix-parse-error-expression err))))))
 
 (defun shunting-yard (expression &aux tree stack)
   (let ((last-token :start))
@@ -53,12 +65,7 @@
     (dolist (op stack)
       (nodef tree op)))
   (when (cdr tree)
-    ;; For clarity, we use `*print-length*' to force sublists to print as `(...)'.
-    (let ((*print-length* 0))
-      (error "Infix parsing error on: ~{~A~^ ~}~@
-              This can happen when you call a function that has not been declared~@
-              as a unary operator, without parenthesizing the call."
-	     expression)))
+    (error 'infix-parse-error :expression expression))
   (car tree))
 
 (defun valid? (expression)
